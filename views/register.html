@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Регистрация</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="login-container">
+      <h1>Регистрация</h1>
+      <form id="registerForm">
+        <div
+          id="errorMessage"
+          class="error-message"
+          style="display: none"
+        ></div>
+        <div class="form-group">
+          <label for="username">Логин:</label>
+          <input type="text" id="username" name="username" required />
+        </div>
+        <div class="form-group">
+          <label for="fullName">Полное имя:</label>
+          <input type="text" id="fullName" name="fullName" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Пароль:</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            required
+            minlength="6"
+          />
+        </div>
+        <div class="form-group">
+          <label for="confirmPassword">Подтвердите пароль:</label>
+          <input
+            type="password"
+            id="confirmPassword"
+            name="confirmPassword"
+            required
+            minlength="6"
+          />
+        </div>
+        <div class="form-group" id="secretCodeGroup" style="display: none">
+          <label for="secretCode">Секретный код менеджера:</label>
+          <input type="password" id="secretCode" name="secretCode" />
+        </div>
+        <button type="submit" class="btn">Зарегистрироваться</button>
+      </form>
+      <div class="register-link">
+        Уже есть аккаунт? <a href="/login">Войти</a>
+      </div>
+    </div>
+
+    <script>
+      // Показываем поле для секретного кода если в URL есть параметр ?manager
+      if (new URLSearchParams(window.location.search).has("manager")) {
+        document.getElementById("secretCodeGroup").style.display = "block";
+      }
+
+      document
+        .getElementById("registerForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          const username = document.getElementById("username").value;
+          const fullName = document.getElementById("fullName").value;
+          const password = document.getElementById("password").value;
+          const confirmPassword =
+            document.getElementById("confirmPassword").value;
+          const secretCode = document.getElementById("secretCode")?.value || "";
+
+          // Валидация
+          if (password !== confirmPassword) {
+            showError("Пароли не совпадают");
+            return;
+          }
+
+          try {
+            const response = await fetch("/register", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                username,
+                password,
+                fullName,
+                secretCode,
+              }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+              window.location.href = "/login?registered=true";
+            } else {
+              showError(data.error || "Ошибка регистрации");
+            }
+          } catch (error) {
+            showError("Ошибка соединения с сервером");
+          }
+        });
+
+      function showError(message) {
+        const errorElement = document.getElementById("errorMessage");
+        errorElement.textContent = message;
+        errorElement.style.display = "block";
+      }
+    </script>
+  </body>
+</html>

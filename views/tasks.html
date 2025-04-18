@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Список задач - Просктнос агентство</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Просктнос агентство</h1>
+      <div class="user-info">
+        Вы вошли как: <strong id="userFullName"></strong> |
+        <a href="/logout">Выйти</a>
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="filters">
+        <form id="filterForm">
+          <div id="executorFilter" class="filter-group" style="display: none">
+            <label for="executor">Исполнитель:</label>
+            <select id="executor" name="executor">
+              <option value="all">Все исполнители</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="status">Статус:</label>
+            <select id="status" name="status">
+              <option value="all">Все статусы</option>
+              <option value="new">Новая</option>
+              <option value="in_progress">В работе</option>
+              <option value="completed">Завершена</option>
+              <option value="rejected">Отклонена</option>
+            </select>
+          </div>
+        </form>
+      </div>
+
+      <div id="taskFormContainer" class="task-form" style="display: none">
+        <h2>Создать новую задачу</h2>
+        <form id="taskForm">
+          <div class="form-group">
+            <label for="title">Название:</label>
+            <input type="text" id="title" name="title" required />
+          </div>
+          <div class="form-group">
+            <label for="description">Описание:</label>
+            <textarea id="description" name="description" rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="executor_id">Исполнитель:</label>
+            <select id="executor_id" name="executor_id" required>
+              <!-- Исполнители будут загружены через JS -->
+            </select>
+          </div>
+          <button type="submit" class="btn">Создать задачу</button>
+        </form>
+      </div>
+
+      <div class="tasks-list">
+        <h2>Список задач</h2>
+        <div id="tasksContainer">
+          <!-- Задачи будут загружены через JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Модальное окно для редактирования -->
+    <div id="editModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeEditForm()">&times;</span>
+        <h2>Редактировать задачу</h2>
+        <form id="editForm">
+          <div class="form-group">
+            <label for="edit_title">Название:</label>
+            <input type="text" id="edit_title" name="title" required />
+          </div>
+          <div class="form-group">
+            <label for="edit_description">Описание:</label>
+            <textarea
+              id="edit_description"
+              name="description"
+              rows="3"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="edit_executor_id">Исполнитель:</label>
+            <select id="edit_executor_id" name="executor_id" required>
+              <!-- Исполнители будут загружены через JS -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit_status">Статус:</label>
+            <select id="edit_status" name="status" required>
+              <option value="new">Новая</option>
+              <option value="in_progress">В работе</option>
+              <option value="completed">Завершена</option>
+              <option value="rejected">Отклонена</option>
+            </select>
+          </div>
+          <button type="submit" class="btn">Сохранить</button>
+        </form>
+      </div>
+    </div>
+
+    <script src="/js/tasks.js"></script>
+  </body>
+</html>
