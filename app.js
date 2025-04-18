@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
@@ -11,25 +12,31 @@ initDB();
 
 const app = express();
 
+// Конфигурация
+const SECRET_MANAGER_CODE = process.env.MANAGER_SECRET || 'DEV_MANAGER_CODE_123';
 
-
+// Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Настройка CORS
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+    res.header('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:3000');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
     next();
 });
+
+// Настройка сессии
 app.use(session({
-    secret: 'your-secret-key-here',
+    secret: process.env.SESSION_SECRET || 'your-secret-key-here',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false,
+        secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000
+        maxAge: 24 * 60 * 60 * 1000 // 1 день
     },
     name: 'taskManager.sid'
 }));
@@ -45,7 +52,7 @@ const requireAuth = (req, res, next) => {
     next();
 };
 
-// Маршруты
+// Маршруты представлений
 app.get('/login', (req, res) => {
     if (req.session.userId) return res.redirect('/');
 
@@ -68,6 +75,7 @@ app.get('/', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'tasks.html'));
 });
 
+// API Endpoints
 app.get('/api/user', requireAuth, (req, res) => {
     res.json({
         id: req.session.userId,
@@ -78,8 +86,6 @@ app.get('/api/user', requireAuth, (req, res) => {
 
 app.get('/api/tasks', requireAuth, async (req, res) => {
     try {
-        console.log(`Запрос задач для ${req.session.role} ID:${req.session.userId}`);
-
         let sql = `SELECT t.*, u1.full_name as creator_name, u2.full_name as executor_name 
                FROM tasks t
                JOIN users u1 ON t.creator_id = u1.id
@@ -102,17 +108,10 @@ app.get('/api/tasks', requireAuth, async (req, res) => {
 
         sql += ' ORDER BY t.created_at DESC';
 
-        console.log('Выполняем SQL:', sql, 'Параметры:', params);
-
         const tasks = await new Promise((resolve, reject) => {
             db.all(sql, params, (err, rows) => {
-                if (err) {
-                    console.error('SQL error:', err);
-                    reject(err);
-                } else {
-                    console.log('Найдено задач:', rows.length);
-                    resolve(rows);
-                }
+                if (err) reject(err);
+                else resolve(rows);
             });
         });
 
@@ -142,47 +141,7 @@ app.get('/api/executors', requireAuth, async (req, res) => {
     }
 });
 
-// Обработка регистрации
-app.post('/register', async (req, res) => {
-    try {
-        const { username, password, fullName } = req.body;
-
-        if (!username || !password || !fullName) {
-            return res.status(400).json({ error: 'Все поля обязательны' });
-        }
-
-        const existingUser = await new Promise((resolve, reject) => {
-            db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
-
-        if (existingUser) {
-            return res.status(400).json({ error: 'Пользователь уже существует' });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        await new Promise((resolve, reject) => {
-            db.run(
-                'INSERT INTO users (username, password, role, full_name) VALUES (?, ?, ?, ?)',
-                [username, hashedPassword, 'executor', fullName],
-                function (err) {
-                    if (err) reject(err);
-                    else resolve(this.lastID);
-                }
-            );
-        });
-
-        res.status(201).json({ success: true });
-    } catch (error) {
-        console.error('Ошибка регистрации:', error);
-        res.status(500).json({ error: 'Ошибка сервера' });
-    }
-});
-
-// Обработка входа
+// Аутентификация
 app.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -198,8 +157,8 @@ app.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Неверные учетные данные' });
         }
 
-        const match = await bcrypt.compare(password, user.password);
-        if (!match) {
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if (!passwordMatch) {
             return res.status(401).json({ error: 'Неверные учетные данные' });
         }
 
@@ -227,7 +186,50 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Выход из системы
+app.post('/register', async (req, res) => {
+    try {
+        const { username, password, fullName, secretCode } = req.body;
+
+        if (!username || !password || !fullName) {
+            return res.status(400).json({ error: 'Все поля обязательны для заполнения' });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ error: 'Пароль должен быть не менее 6 символов' });
+        }
+
+        const existingUser = await new Promise((resolve, reject) => {
+            db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+
+        if (existingUser) {
+            return res.status(400).json({ error: 'Пользователь уже существует' });
+        }
+
+        const role = secretCode === SECRET_MANAGER_CODE ? 'manager' : 'executor';
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await new Promise((resolve, reject) => {
+            db.run(
+                'INSERT INTO users (username, password, role, full_name) VALUES (?, ?, ?, ?)',
+                [username, hashedPassword, role, fullName],
+                function (err) {
+                    if (err) reject(err);
+                    else resolve(this.lastID);
+                }
+            );
+        });
+
+        res.status(201).json({ success: true });
+    } catch (err) {
+        console.error('Ошибка регистрации:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
 app.get('/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
@@ -238,7 +240,7 @@ app.get('/logout', (req, res) => {
     });
 });
 
-// Создание задачи
+// Управление задачами
 app.post('/tasks', requireAuth, async (req, res) => {
     if (req.session.role !== 'manager') {
         return res.status(403).json({ error: 'Доступ запрещен' });
@@ -264,7 +266,6 @@ app.post('/tasks', requireAuth, async (req, res) => {
     }
 });
 
-// Обновление задачи
 app.post('/tasks/:id/update', requireAuth, async (req, res) => {
     if (req.session.role !== 'manager') {
         return res.status(403).json({ error: 'Доступ запрещен' });
@@ -290,7 +291,6 @@ app.post('/tasks/:id/update', requireAuth, async (req, res) => {
     }
 });
 
-// Удаление задачи
 app.post('/tasks/:id/delete', requireAuth, async (req, res) => {
     if (req.session.role !== 'manager') {
         return res.status(403).json({ error: 'Доступ запрещен' });
@@ -310,7 +310,6 @@ app.post('/tasks/:id/delete', requireAuth, async (req, res) => {
     }
 });
 
-// Изменение статуса задачи
 app.post('/tasks/:id/status', requireAuth, async (req, res) => {
     if (req.session.role !== 'executor') {
         return res.status(403).json({ error: 'Доступ запрещен' });
@@ -348,8 +347,20 @@ app.post('/tasks/:id/status', requireAuth, async (req, res) => {
     }
 });
 
+// Обработка 404
+app.use((req, res) => {
+    res.status(404).send('Страница не найдена');
+});
+
+// Обработка ошибок
+app.use((err, req, res, next) => {
+    console.error('Ошибка приложения:', err.stack);
+    res.status(500).send('Что-то сломалось!');
+});
+
 // Запуск сервера
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Сервер запущен на http://localhost:${PORT}`);
+    console.log(`Секретный код для менеджеров: ${SECRET_MANAGER_CODE}`);
 });

@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Регистрация</title>
     <link rel="stylesheet" href="/css/style.css" />
+    <style>
+      .secret-code-field {
+        margin-top: 15px;
+        padding: 10px;
+        background: #f5f5f5;
+        border-radius: 5px;
+      }
+    </style>
   </head>
   <body>
     <div class="login-container">
@@ -15,14 +23,17 @@
           class="error-message"
           style="display: none"
         ></div>
+
         <div class="form-group">
           <label for="username">Логин:</label>
           <input type="text" id="username" name="username" required />
         </div>
+
         <div class="form-group">
           <label for="fullName">Полное имя:</label>
           <input type="text" id="fullName" name="fullName" required />
         </div>
+
         <div class="form-group">
           <label for="password">Пароль:</label>
           <input
@@ -33,6 +44,7 @@
             minlength="6"
           />
         </div>
+
         <div class="form-group">
           <label for="confirmPassword">Подтвердите пароль:</label>
           <input
@@ -43,23 +55,35 @@
             minlength="6"
           />
         </div>
-        <div class="form-group" id="secretCodeGroup" style="display: none">
+
+        <!-- Поле для секретного кода (показывается только при ?manager) -->
+        <div
+          id="secretCodeGroup"
+          class="form-group secret-code-field"
+          style="display: none"
+        >
           <label for="secretCode">Секретный код менеджера:</label>
           <input type="password" id="secretCode" name="secretCode" />
         </div>
+
         <button type="submit" class="btn">Зарегистрироваться</button>
       </form>
+
       <div class="register-link">
         Уже есть аккаунт? <a href="/login">Войти</a>
       </div>
     </div>
 
     <script>
-      // Показываем поле для секретного кода если в URL есть параметр ?manager
-      if (new URLSearchParams(window.location.search).has("manager")) {
-        document.getElementById("secretCodeGroup").style.display = "block";
-      }
+      // Показываем поле для секретного кода если в URL есть ?manager
+      document.addEventListener("DOMContentLoaded", () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has("manager")) {
+          document.getElementById("secretCodeGroup").style.display = "block";
+        }
+      });
 
+      // Обработка формы
       document
         .getElementById("registerForm")
         .addEventListener("submit", async (e) => {
